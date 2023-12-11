@@ -53,7 +53,7 @@ class Logger:
             "open_gopro.ble.client",
             "open_gopro.wifi.adapters.wireless",
             "open_gopro.wifi.mdns_scanner",
-            "open_gopro.responses",
+            "open_gopro.models.response",
             "open_gopro.util",
             "bleak",
             "urllib3",

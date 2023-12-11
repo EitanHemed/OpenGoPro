@@ -262,7 +262,6 @@ class RequestsHttpRespBuilderDirector:
     """
 
     def __init__(self, response: requests.models.Response, parser: Parser | None) -> None:
-
         self.response = response
         self.parser = parser or Parser(json_parser=JsonParsers.LambdaParser(lambda data: data))
 
@@ -289,6 +288,7 @@ class BleRespBuilder(RespBuilder[bytearray]):
 
     def __init__(self) -> None:
         self._bytes_remaining = 0
+        self._expected_len = 0
         self._uuid: BleUUID
         self._identifier: types.ResponseType
         self._feature_id: FeatureId | None = None
@@ -366,15 +366,18 @@ class BleRespBuilder(RespBuilder[bytearray]):
             elif hdr is Header.EXT_16:
                 self._bytes_remaining = (buf[1] << 8) + buf[2]
                 buf = buf[3:]
+            self._expected_len = self._bytes_remaining
 
         # Append payload to buffer and update remaining / complete
         self._packet.extend(buf)
         self._bytes_remaining -= len(buf)
 
-        if self._bytes_remaining < 0:
-            logger.error("received too much data. parsing is in unknown state")
-        elif self._bytes_remaining == 0:
+        if self._bytes_remaining <= 0:
             self._state = RespBuilder._State.ACCUMULATED
+            if self._bytes_remaining != 0:
+                logger.warning(
+                    f"Received an additional {self._bytes_remaining * -1} unexpected byte(s): {self._packet[self._bytes_remaining:].hex(':')}"
+                )
 
     def set_status(self, status: ErrorCode) -> None:
         """Store the status. This is sometimes optional.
@@ -429,6 +432,11 @@ class BleRespBuilder(RespBuilder[bytearray]):
         Returns:
             GoProResp: built response
         """
+        if not self.is_finished_accumulating:
+            raise RuntimeError(
+                f"Can not build packet that has not finished accumulating. Missing {self._expected_len - len(self._packet)} bytes"
+            )
+
         self._set_response_meta()
         buf = self._packet
 

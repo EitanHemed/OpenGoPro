@@ -139,6 +139,8 @@ class GoProBle(BaseGoProCommunicator, Generic[BleHandle, BleDevice]):
         target (Pattern | BleDevice): regex or device to connect to
     """
 
+    MAX_BLE_PKT_LEN = 20
+
     def __init__(
         self,
         controller: BLEController,
@@ -197,7 +199,6 @@ class GoProBle(BaseGoProCommunicator, Generic[BleHandle, BleDevice]):
         Yields:
             Generator[bytearray, None, None]: Generator of packets as bytearrays
         """
-        MAX_BLE_PKT_LEN = 20
         general_header = BitStruct(
             "continuation" / Const(0, Bit),
             "header" / Const(Header.GENERAL.value, BitsInteger(2)),
@@ -240,7 +241,7 @@ class GoProBle(BaseGoProCommunicator, Generic[BleHandle, BleDevice]):
                 packet = bytearray(header.build({"length": data_len}))
                 header = continuation_header
 
-            bytes_remaining = MAX_BLE_PKT_LEN - len(packet)
+            bytes_remaining = cls.MAX_BLE_PKT_LEN - len(packet)
             current, data = (data[:bytes_remaining], data[bytes_remaining:])
             packet.extend(current)
             yield packet
